@@ -29,6 +29,8 @@ source $ZSH/oh-my-zsh.sh
 # else
 #   export EDITOR='mvim'
 # fi
+export EDITOR='vim'
+export BUNDLER_EDITOR='subl'
 
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
@@ -55,7 +57,7 @@ hbk () {
                 echo "Need a heroku app input"
         else
                 app_mapping $1
-                heroku pg:backups capture --app $happ
+                heroku pg:backups capture HEROKU_POSTGRESQL_MAUVE_URL --app $happ
         fi
 }
 
@@ -77,7 +79,7 @@ hbkdl () {
                 app_mapping $2
                 current_date=$(my_current_date)
                 heroku pg:backups public-url $1 --app $happ
-                curl -o "/Users/devops/Downloads/pg_backups/$happ-$current_date.dump" `heroku pg:backups public-url -a $happ`
+                curl -o "/Users/devops/Downloads/pg_backups/$happ-$current_date.dump" `heroku pg:backups public-url $1 -a $happ`
         fi
 }
 
@@ -95,7 +97,29 @@ dbres () {
                 fi
                 pg_restore --verbose --clean --no-acl --no-owner -h localhost -d $happ"_development" "/Users/devops/Downloads/pg_backups/$happ-$current_date.dump"
                 rake db:migrate
+		rake my_task:dbres_run
         fi
+}
+
+dbdump () {
+        if [ $# -lt 1 ]
+        then
+                echo "Need project name <eh, eh-jobs>"
+        else
+                app_mapping $1
+                if [ -z "$2" ]
+                then
+                        current_date=$(my_current_date)
+                else
+                        current_date=$2
+                fi
+                pg_dump --verbose --clean --no-acl --no-owner -h localhost -d $happ"_development" > "/Users/devops/Downloads/pg_dumps/$happ-$current_date.dump"
+        fi
+}
+
+rmk_psql() {
+	rm /usr/local/var/postgres/postmaster.pid
+	sudo launchctl load  ~/Library/LaunchAgents/homebrew.mxcl.postgresql.plist 
 }
 
 # Set personal aliases, overriding those provided by oh-my-zsh libs,
@@ -104,5 +128,9 @@ dbres () {
 # For a full list of active aliases, run `alias`.
 alias config="vim ~/.zshrc"
 alias reload="source ~/.zshrc"
-alias dbdrop="rake db:drop RAILS_ENV=development"
-alias pstaging="git push staging staging:master"
+alias dbdrop="rake db:drop RAILS_ENV=development; rake db:create"
+alias pstaging="git push staging staging:master; heroku run rake db:migrate -a employmenthero-staging"
+alias subl="reattach-to-user-namespace subl"
+alias hp='heroku run rails c -a employmenthero'
+alias hs='heroku run rails c -a employmenthero-staging'
+alias bo='reattach-to-user-namespace bundle open'
